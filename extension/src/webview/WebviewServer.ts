@@ -21,7 +21,7 @@ interface PointerConfig {
  * Message types for WebSocket communication.
  */
 interface ClientMessage {
-    type: 'setExpression' | 'setPreferredExtractor' | 'refresh' | 'getCompletions' | 'setPointers' | 'setAutoRefresh';
+    type: 'setExpression' | 'setPreferredExtractor' | 'refresh' | 'getCompletions' | 'setPointers' | 'setAutoRefresh' | 'setWatches';
     expression?: string;
     extractorId?: string;
     text?: string;
@@ -29,11 +29,13 @@ interface ClientMessage {
     requestId?: string;
     pointers?: PointerConfig[];
     autoRefresh?: boolean;
+    watches?: string[];
 }
 
 interface ServerMessage {
     type: 'state' | 'completions' | 'theme';
     state?: VisualizationResult;
+    states?: { expression: string; result: VisualizationResult }[];  // Multiple expressions
     completions?: { label: string; kind: number }[];
     theme?: 'light' | 'dark';
     requestId?: string;
@@ -51,6 +53,7 @@ export class WebviewServer {
     private currentExpression: string = '';
     private currentExtractorId: string | undefined;
     private currentPointers: TrackedExpression[] = [];
+    private currentWatches: string[] = [];
     private autoRefreshEnabled: boolean = false;
     private debugStepDisposable: { dispose: () => void } | undefined;
 
@@ -189,6 +192,13 @@ export class WebviewServer {
             case 'setAutoRefresh':
                 this.autoRefreshEnabled = message.autoRefresh ?? false;
                 break;
+
+            case 'setWatches':
+                if (message.watches) {
+                    this.currentWatches = message.watches.filter(w => w.trim() !== '');
+                    await this.refreshVisualization();
+                }
+                break;
         }
     }
 
@@ -205,6 +215,51 @@ export class WebviewServer {
             return;
         }
 
+        // Parse comma-separated expressions for side-by-side visualization
+        const expressions = this.currentExpression.split(',').map(e => e.trim()).filter(e => e);
+
+        if (expressions.length === 0) {
+            const state: VisualizationResult = {
+                kind: 'error',
+                message: 'Enter an expression to visualize'
+            };
+            this.broadcastState(state);
+            return;
+        }
+
+        // Multiple expressions - evaluate each separately
+        if (expressions.length > 1) {
+            const results: { expression: string; result: VisualizationResult }[] = [];
+
+            for (const expr of expressions) {
+                let result: VisualizationResult;
+
+                // Use pointer tracking if pointers are configured
+                if (this.currentPointers.length > 0) {
+                    result = await this.backend.getVisualizationWithPointers(
+                        expr,
+                        this.currentPointers,
+                        this.currentExtractorId
+                    );
+                } else {
+                    result = await this.backend.getVisualizationData(
+                        expr,
+                        this.currentExtractorId
+                    );
+                }
+
+                results.push({ expression: expr, result });
+            }
+
+            // Evaluate watch variables
+            const watchValues = await this.evaluateWatches();
+
+            // Broadcast multiple results
+            this.broadcastMultipleStates(results, watchValues);
+            return;
+        }
+
+        // Single expression - use original logic
         let result: VisualizationResult;
 
         // Use pointer tracking if pointers are configured
@@ -221,7 +276,39 @@ export class WebviewServer {
             );
         }
 
-        this.broadcastState(result);
+        // Evaluate watch variables
+        const watchValues = await this.evaluateWatches();
+
+        // Add watch values to the result
+        this.broadcastState(result, watchValues);
+    }
+
+    /**
+     * Evaluate all watch expressions.
+     */
+    private async evaluateWatches(): Promise<{ name: string; value: string }[]> {
+        if (this.currentWatches.length === 0 || !this.sessionManager) {
+            return [];
+        }
+
+        const watchValues: { name: string; value: string }[] = [];
+
+        for (const watch of this.currentWatches) {
+            try {
+                const value = await this.sessionManager.evaluate(watch, 'watch');
+                watchValues.push({
+                    name: watch,
+                    value: value || 'undefined'
+                });
+            } catch (error) {
+                watchValues.push({
+                    name: watch,
+                    value: '<error>'
+                });
+            }
+        }
+
+        return watchValues;
     }
 
     /**
@@ -252,10 +339,36 @@ export class WebviewServer {
     /**
      * Broadcast state to all connections.
      */
-    private broadcastState(state: VisualizationResult): void {
+    private broadcastState(state: VisualizationResult, watchValues?: { name: string; value: string }[]): void {
+        // Add watch values to the state
+        const stateWithWatches = watchValues && watchValues.length > 0
+            ? { ...state, watchValues }
+            : state;
+
         const message: ServerMessage = {
             type: 'state',
-            state
+            state: stateWithWatches as VisualizationResult
+        };
+        const data = JSON.stringify(message);
+
+        for (const ws of this.connections) {
+            if (ws.readyState === WebSocket.OPEN) {
+                ws.send(data);
+            }
+        }
+    }
+
+    /**
+     * Broadcast multiple states for side-by-side visualization.
+     */
+    private broadcastMultipleStates(
+        results: { expression: string; result: VisualizationResult }[],
+        watchValues?: { name: string; value: string }[]
+    ): void {
+        const message: ServerMessage = {
+            type: 'state',
+            states: results,
+            state: watchValues && watchValues.length > 0 ? { kind: 'data', watchValues } as any : undefined
         };
         const data = JSON.stringify(message);
 
@@ -678,6 +791,118 @@ export class WebviewServer {
             cursor: pointer;
         }
 
+        /* Watch Variables Styles */
+        .watch-config {
+            margin-bottom: 12px;
+            padding: 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            background: var(--input-bg);
+        }
+        .watch-config-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            cursor: pointer;
+        }
+        .watch-config-header h3 {
+            font-size: 12px;
+            text-transform: uppercase;
+            opacity: 0.7;
+            margin: 0;
+        }
+        .watch-config-toggle {
+            font-size: 10px;
+            opacity: 0.7;
+        }
+        .watch-config-body {
+            display: none;
+        }
+        .watch-config-body.expanded {
+            display: block;
+        }
+        .watch-row {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 6px;
+            align-items: center;
+        }
+        .watch-row input[type="text"] {
+            flex: 1;
+            padding: 6px 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            background: var(--bg-color);
+            color: var(--text-color);
+            font-family: 'Fira Code', 'Consolas', monospace;
+            font-size: 13px;
+        }
+        .watch-row button {
+            padding: 6px 10px;
+            border: none;
+            border-radius: 4px;
+            background: var(--border-color);
+            color: var(--text-color);
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .watch-row button:hover {
+            background: var(--button-bg);
+            color: white;
+        }
+        .add-watch-btn {
+            width: 100%;
+            padding: 6px;
+            margin-top: 4px;
+            border: 1px dashed var(--border-color);
+            border-radius: 4px;
+            background: transparent;
+            color: var(--text-color);
+            cursor: pointer;
+            font-size: 12px;
+            opacity: 0.7;
+        }
+        .add-watch-btn:hover {
+            opacity: 1;
+            border-color: var(--button-bg);
+            color: var(--button-bg);
+        }
+        .watch-display {
+            margin-bottom: 12px;
+            padding: 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            background: var(--input-bg);
+        }
+        .watch-display h4 {
+            font-size: 11px;
+            text-transform: uppercase;
+            opacity: 0.6;
+            margin: 0 0 8px 0;
+        }
+        .watch-values {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        .watch-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            background: var(--bg-color);
+            border-radius: 4px;
+            font-family: 'Fira Code', 'Consolas', monospace;
+            font-size: 13px;
+        }
+        .watch-item-name {
+            color: #9cdcfe;
+        }
+        .watch-item-value {
+            color: #ce9178;
+        }
+
         /* Array Visualization Styles */
         .array-container {
             padding: 16px;
@@ -739,11 +964,44 @@ export class WebviewServer {
             color: var(--text-color);
             opacity: 0.7;
         }
+
+        /* Multi-expression side-by-side layout */
+        .multi-vis-container {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+        .vis-panel {
+            flex: 1;
+            min-width: 300px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .vis-panel-header {
+            padding: 8px 12px;
+            background: var(--table-header-bg);
+            border-bottom: 1px solid var(--border-color);
+            font-family: 'Fira Code', 'Consolas', monospace;
+            font-size: 13px;
+            font-weight: 600;
+        }
+        .vis-panel-content {
+            min-height: 350px;
+            position: relative;
+        }
+        .vis-panel-content .visualization-content {
+            padding: 16px;
+        }
+        .vis-panel-content #graph-container,
+        .vis-panel-content .graph-container {
+            height: 350px !important;
+        }
     </style>
 </head>
 <body class="dark">
     <div class="header">
-        <input type="text" class="expression-input" id="expression" placeholder="Enter Python expression (e.g., head, root, my_list)">
+        <input type="text" class="expression-input" id="expression" placeholder="Enter expression(s) - comma-separated for side-by-side (e.g., tree1, tree2)">
         <select class="extractor-select" id="extractor">
             <option value="">Auto</option>
         </select>
@@ -786,6 +1044,25 @@ export class WebviewServer {
         </div>
     </div>
 
+    <div class="watch-config" id="watch-config">
+        <div class="watch-config-header" id="watch-config-header">
+            <h3>Watch Variables</h3>
+            <span class="watch-config-toggle">[+]</span>
+        </div>
+        <div class="watch-config-body" id="watch-config-body">
+            <div id="watch-rows">
+                <div class="watch-row" data-index="0">
+                    <input type="text" placeholder="Variable (e.g., curr)" data-field="expression">
+                    <button class="remove-watch" title="Remove">×</button>
+                </div>
+            </div>
+            <button class="add-watch-btn" id="add-watch">+ Add Watch</button>
+        </div>
+    </div>
+
+    <div class="watch-display" id="watch-display" style="display: none;">
+    </div>
+
     <div class="visualization" id="visualization">
         <p class="message">Enter an expression to visualize</p>
     </div>
@@ -801,9 +1078,16 @@ export class WebviewServer {
         const pointerRows = document.getElementById('pointer-rows');
         const addPointerBtn = document.getElementById('add-pointer');
         const autoRefreshCheckbox = document.getElementById('auto-refresh');
+        const watchConfigHeader = document.getElementById('watch-config-header');
+        const watchConfigBody = document.getElementById('watch-config-body');
+        const watchRows = document.getElementById('watch-rows');
+        const addWatchBtn = document.getElementById('add-watch');
+        const watchDisplay = document.getElementById('watch-display');
 
         let currentState = null;
+        let currentStates = null;  // For multiple expressions
         let currentNetwork = null;
+        let currentNetworks = [];  // For multiple networks
         let isDarkTheme = true;
         let pointerColors = ['#22c55e', '#ef4444', '#3b82f6', '#f59e0b', '#8b5cf6', '#ec4899'];
 
@@ -812,14 +1096,32 @@ export class WebviewServer {
 
             switch (message.type) {
                 case 'state':
-                    currentState = message.state;
-                    renderState(message.state);
+                    // Check for multiple states (side-by-side)
+                    if (message.states && message.states.length > 0) {
+                        currentStates = message.states;
+                        currentState = null;
+                        renderMultipleStates(message.states);
+                        // Update watch values if present
+                        if (message.state && message.state.watchValues) {
+                            renderWatchValues(message.state.watchValues);
+                        }
+                    } else {
+                        currentState = message.state;
+                        currentStates = null;
+                        renderState(message.state);
+                        // Update watch values if present
+                        if (message.state && message.state.watchValues) {
+                            renderWatchValues(message.state.watchValues);
+                        }
+                    }
                     break;
                 case 'theme':
                     isDarkTheme = message.theme === 'dark';
                     document.body.className = message.theme;
                     // Re-render if we have data
-                    if (currentState && currentState.kind === 'data') {
+                    if (currentStates && currentStates.length > 0) {
+                        renderMultipleStates(currentStates);
+                    } else if (currentState && currentState.kind === 'data') {
                         renderData(currentState.result.data);
                     }
                     break;
@@ -929,6 +1231,80 @@ export class WebviewServer {
             }));
         });
 
+        // Watch configuration toggle
+        watchConfigHeader.addEventListener('click', () => {
+            const isExpanded = watchConfigBody.classList.toggle('expanded');
+            watchConfigHeader.querySelector('.watch-config-toggle').textContent = isExpanded ? '[-]' : '[+]';
+        });
+
+        // Add watch button
+        addWatchBtn.addEventListener('click', () => {
+            const rows = watchRows.querySelectorAll('.watch-row');
+            const newIndex = rows.length;
+
+            const newRow = document.createElement('div');
+            newRow.className = 'watch-row';
+            newRow.dataset.index = newIndex;
+            newRow.innerHTML = \`
+                <input type="text" placeholder="Variable \${newIndex + 1} (e.g., curr)" data-field="expression">
+                <button class="remove-watch" title="Remove">×</button>
+            \`;
+            watchRows.appendChild(newRow);
+            setupWatchRowListeners(newRow);
+        });
+
+        // Setup listeners for watch rows
+        function setupWatchRowListeners(row) {
+            const removeBtn = row.querySelector('.remove-watch');
+            removeBtn.addEventListener('click', () => {
+                row.remove();
+                sendWatches();
+            });
+
+            const input = row.querySelector('input');
+            input.addEventListener('change', sendWatches);
+            input.addEventListener('blur', sendWatches);
+        }
+
+        // Setup existing watch rows
+        document.querySelectorAll('.watch-row').forEach(setupWatchRowListeners);
+
+        // Send watches to server
+        function sendWatches() {
+            const watches = [];
+            watchRows.querySelectorAll('.watch-row').forEach((row) => {
+                const expr = row.querySelector('[data-field="expression"]').value.trim();
+                if (expr) {
+                    watches.push(expr);
+                }
+            });
+
+            ws.send(JSON.stringify({
+                type: 'setWatches',
+                watches: watches
+            }));
+        }
+
+        // Render watch values in the display panel
+        function renderWatchValues(watchValues) {
+            if (!watchValues || watchValues.length === 0) {
+                watchDisplay.style.display = 'none';
+                return;
+            }
+
+            watchDisplay.style.display = 'block';
+            let html = '<h4>Watch Values</h4><div class="watch-values">';
+            for (const wv of watchValues) {
+                html += '<div class="watch-item">';
+                html += '<span class="watch-item-name">' + escapeHtml(wv.name) + '</span>';
+                html += '<span>=</span>';
+                html += '<span class="watch-item-value">' + escapeHtml(wv.value) + '</span>';
+                html += '</div>';
+            }
+            html += '</div>';
+            watchDisplay.innerHTML = html;
+        }
+
         function sendExpression() {
             ws.send(JSON.stringify({
                 type: 'setExpression',
@@ -942,6 +1318,10 @@ export class WebviewServer {
                 currentNetwork.destroy();
                 currentNetwork = null;
             }
+            for (const net of currentNetworks) {
+                if (net) net.destroy();
+            }
+            currentNetworks = [];
 
             if (state.kind === 'error' || state.kind === 'noSession') {
                 visualization.innerHTML = '<p class="error">' + escapeHtml(state.message) + '</p>';
@@ -956,6 +1336,306 @@ export class WebviewServer {
 
                 // Render the visualization
                 renderData(result.data);
+            }
+        }
+
+        function renderMultipleStates(states) {
+            // Clean up previous visualizations
+            if (currentNetwork) {
+                currentNetwork.destroy();
+                currentNetwork = null;
+            }
+            for (const net of currentNetworks) {
+                if (net) net.destroy();
+            }
+            currentNetworks = [];
+
+            // Create container for side-by-side visualizations
+            let html = '<div class="multi-vis-container">';
+
+            for (let i = 0; i < states.length; i++) {
+                const { expression, result } = states[i];
+                html += '<div class="vis-panel" data-index="' + i + '">';
+                html += '<div class="vis-panel-header">' + escapeHtml(expression) + '</div>';
+                html += '<div class="vis-panel-content" id="vis-panel-content-' + i + '"></div>';
+                html += '</div>';
+            }
+
+            html += '</div>';
+            visualization.innerHTML = html;
+
+            // Render each visualization into its panel
+            for (let i = 0; i < states.length; i++) {
+                const { expression, result } = states[i];
+                const panelContent = document.getElementById('vis-panel-content-' + i);
+
+                if (result.kind === 'error' || result.kind === 'noSession') {
+                    panelContent.innerHTML = '<p class="error">' + escapeHtml(result.message) + '</p>';
+                } else if (result.kind === 'data') {
+                    renderDataInPanel(result.result.data, panelContent, i);
+                }
+            }
+        }
+
+        function renderDataInPanel(data, container, panelIndex) {
+            console.log('renderDataInPanel called with:', data, 'panelIndex:', panelIndex);
+
+            if (!data || !data.kind) {
+                container.innerHTML = '<div class="visualization-content">' +
+                    '<p class="error">Invalid visualization data</p></div>';
+                return;
+            }
+
+            const kind = Object.keys(data.kind)[0];
+
+            switch (kind) {
+                case 'text':
+                    container.innerHTML = '<div class="visualization-content"><pre>' + escapeHtml(data.text) + '</pre></div>';
+                    break;
+                case 'table':
+                    container.innerHTML = '<div class="visualization-content">' + renderTable(data.rows) + '</div>';
+                    break;
+                case 'tree':
+                    renderTreeGraphInPanel(data, container, panelIndex);
+                    break;
+                case 'grid':
+                    container.innerHTML = '<div class="grid-container">' + renderGrid(data) + '</div>';
+                    break;
+                case 'array':
+                    container.innerHTML = '<div class="array-container">' + renderArray(data) + '</div>';
+                    break;
+                case 'graph':
+                    renderGraphInPanel(data, container, panelIndex);
+                    break;
+                case 'plotly':
+                    renderPlotlyInPanel(data, container, panelIndex);
+                    break;
+                default:
+                    container.innerHTML = '<div class="visualization-content"><pre>' + JSON.stringify(data, null, 2) + '</pre></div>';
+            }
+        }
+
+        function renderTreeGraphInPanel(data, container, panelIndex) {
+            if (!data.root) {
+                container.innerHTML = '<div class="visualization-content"><p class="message">Empty tree</p></div>';
+                return;
+            }
+
+            if (typeof vis === 'undefined' || typeof vis.Network === 'undefined') {
+                container.innerHTML = '<div class="visualization-content"><p class="error">vis-network library not loaded.</p></div>';
+                return;
+            }
+
+            container.innerHTML = '<div class="graph-container" id="graph-container-' + panelIndex + '"></div>';
+            const graphContainer = document.getElementById('graph-container-' + panelIndex);
+
+            // Build marker map
+            const markerMap = new Map();
+            if (data.markers && Array.isArray(data.markers)) {
+                for (const marker of data.markers) {
+                    if (marker.pythonId !== undefined && marker.pythonId !== null) {
+                        const key = String(marker.pythonId);
+                        if (!markerMap.has(key)) {
+                            markerMap.set(key, []);
+                        }
+                        markerMap.get(key).push(marker);
+                    }
+                }
+            }
+
+            const nodes = [];
+            const edges = [];
+            let nodeId = 0;
+
+            function traverse(node, parentId) {
+                if (!node) return null;
+
+                const currentId = nodeId++;
+                const items = node.items || [];
+                let label = items.map(i => i.text || '').join('') || '?';
+                const isNull = label.toLowerCase() === 'null' || label === '...';
+
+                const pythonIdKey = node.pythonId !== undefined && node.pythonId !== null ? String(node.pythonId) : null;
+                const nodeMarkers = pythonIdKey ? markerMap.get(pythonIdKey) : null;
+                const isMarked = nodeMarkers && nodeMarkers.length > 0;
+                const markerColor = isMarked ? nodeMarkers[0].color : null;
+                const markerLabel = isMarked ? nodeMarkers.map(m => m.label).join(', ') : '';
+
+                if (isMarked && markerLabel) {
+                    label = label + '\\n[' + markerLabel + ']';
+                }
+
+                const nodeColor = isDarkTheme ? '#4a9eff' : '#4a9eff';
+
+                nodes.push({
+                    id: currentId,
+                    label: label,
+                    shape: 'circle',
+                    color: {
+                        background: isNull ? 'transparent' : (isMarked ? markerColor : nodeColor),
+                        border: isNull ? (isDarkTheme ? '#555' : '#ccc') : (isMarked ? markerColor : nodeColor),
+                        highlight: { background: '#7ab8ff', border: '#4a9eff' }
+                    },
+                    borderWidth: isNull ? 1 : (isMarked ? 4 : 2),
+                    borderDashes: isNull ? [4, 4] : false,
+                    font: {
+                        color: isNull ? (isDarkTheme ? '#666' : '#999') : '#ffffff',
+                        size: isNull ? 10 : 14
+                    },
+                    size: isNull ? 15 : 25,
+                    shadow: isMarked ? { enabled: true, color: markerColor, size: 10 } : false
+                });
+
+                if (parentId !== null) {
+                    edges.push({ from: parentId, to: currentId });
+                }
+
+                if (node.children && node.children.length > 0) {
+                    for (const child of node.children) {
+                        traverse(child, currentId);
+                    }
+                }
+
+                return currentId;
+            }
+
+            try {
+                traverse(data.root, null);
+
+                const visNodes = new vis.DataSet(nodes);
+                const visEdges = new vis.DataSet(edges);
+
+                const options = {
+                    layout: {
+                        hierarchical: {
+                            enabled: true,
+                            direction: 'UD',
+                            sortMethod: 'directed',
+                            levelSeparation: 60,
+                            nodeSpacing: 80,
+                            treeSpacing: 100
+                        }
+                    },
+                    physics: { enabled: false },
+                    edges: {
+                        arrows: { to: false },
+                        color: { color: isDarkTheme ? '#666' : '#aaa' },
+                        width: 2,
+                        smooth: false
+                    },
+                    interaction: {
+                        dragNodes: false,
+                        zoomView: true,
+                        dragView: true
+                    }
+                };
+
+                const network = new vis.Network(graphContainer, { nodes: visNodes, edges: visEdges }, options);
+                currentNetworks.push(network);
+            } catch (err) {
+                container.innerHTML = '<div class="visualization-content"><p class="error">Error rendering tree: ' + err.message + '</p></div>';
+            }
+        }
+
+        function renderGraphInPanel(data, container, panelIndex) {
+            if (!data.nodes || !Array.isArray(data.nodes) || data.nodes.length === 0) {
+                container.innerHTML = '<div class="visualization-content"><p class="error">Graph data missing nodes array.</p></div>';
+                return;
+            }
+
+            if (typeof vis === 'undefined' || typeof vis.Network === 'undefined') {
+                container.innerHTML = '<div class="visualization-content"><p class="error">vis-network library not loaded.</p></div>';
+                return;
+            }
+
+            container.innerHTML = '<div class="graph-container" id="graph-container-' + panelIndex + '"></div>';
+            const graphContainer = document.getElementById('graph-container-' + panelIndex);
+
+            const markerMap = new Map();
+            if (data.markers && Array.isArray(data.markers)) {
+                for (const marker of data.markers) {
+                    if (marker.pythonId !== undefined && marker.pythonId !== null) {
+                        const key = String(marker.pythonId);
+                        if (!markerMap.has(key)) {
+                            markerMap.set(key, []);
+                        }
+                        markerMap.get(key).push(marker);
+                    }
+                }
+            }
+
+            try {
+                const nodes = new vis.DataSet(data.nodes.map(n => {
+                    const pythonIdKey = n.pythonId !== undefined && n.pythonId !== null ? String(n.pythonId) : null;
+                    const nodeMarkers = pythonIdKey ? markerMap.get(pythonIdKey) : null;
+                    const isMarked = nodeMarkers && nodeMarkers.length > 0;
+                    const markerColor = isMarked ? nodeMarkers[0].color : null;
+
+                    return {
+                        id: n.id,
+                        label: n.label || n.id,
+                        color: {
+                            background: isMarked ? markerColor : (n.color || (isDarkTheme ? '#4a9eff' : '#4a9eff')),
+                            border: isMarked ? markerColor : (n.color || (isDarkTheme ? '#2d7ad6' : '#2d7ad6'))
+                        },
+                        font: { color: isDarkTheme ? '#ffffff' : '#333333' },
+                        shape: n.shape || 'box',
+                        borderWidth: isMarked ? 4 : 2,
+                        shadow: isMarked ? { enabled: true, color: markerColor, size: 15 } : true
+                    };
+                }));
+
+                const edges = new vis.DataSet(data.edges.map((e, i) => ({
+                    id: i,
+                    from: e.from,
+                    to: e.to,
+                    label: e.label || '',
+                    arrows: { to: { enabled: true, scaleFactor: 0.8 } },
+                    color: { color: isDarkTheme ? '#666666' : '#999999' },
+                    smooth: { type: 'cubicBezier', roundness: 0.4 }
+                })));
+
+                const options = {
+                    physics: {
+                        enabled: true,
+                        solver: 'forceAtlas2Based',
+                        stabilization: { iterations: 100 }
+                    },
+                    interaction: { hover: true }
+                };
+
+                const network = new vis.Network(graphContainer, { nodes, edges }, options);
+                currentNetworks.push(network);
+            } catch (err) {
+                container.innerHTML = '<div class="visualization-content"><p class="error">Error rendering graph: ' + err.message + '</p></div>';
+            }
+        }
+
+        function renderPlotlyInPanel(data, container, panelIndex) {
+            if (!data.data || !Array.isArray(data.data) || data.data.length === 0) {
+                container.innerHTML = '<div class="visualization-content"><p class="error">Plotly data missing data array.</p></div>';
+                return;
+            }
+
+            if (typeof Plotly === 'undefined') {
+                container.innerHTML = '<div class="visualization-content"><p class="error">Plotly library not loaded.</p></div>';
+                return;
+            }
+
+            try {
+                container.innerHTML = '<div id="plotly-container-' + panelIndex + '" style="height: 350px;"></div>';
+                const plotlyContainer = document.getElementById('plotly-container-' + panelIndex);
+
+                const layout = Object.assign({}, data.layout || {}, {
+                    paper_bgcolor: isDarkTheme ? '#1e1e1e' : '#ffffff',
+                    plot_bgcolor: isDarkTheme ? '#1e1e1e' : '#ffffff',
+                    font: { color: isDarkTheme ? '#d4d4d4' : '#333333' },
+                    margin: { l: 40, r: 20, t: 40, b: 40 }
+                });
+
+                Plotly.newPlot(plotlyContainer, data.data, layout, { responsive: true, displayModeBar: false });
+            } catch (err) {
+                container.innerHTML = '<div class="visualization-content"><p class="error">Error rendering Plotly chart: ' + err.message + '</p></div>';
             }
         }
 
