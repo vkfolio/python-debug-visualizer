@@ -1,0 +1,62 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pydebugvisualizer"
+version = "0.1.0"
+description = "Python Debug Visualizer - Automatic data structure visualization for VS Code debugging"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "Python Debug Visualizer Contributors"}
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Debuggers",
+]
+requires-python = ">=3.8"
+dependencies = []
+
+[project.optional-dependencies]
+numpy = ["numpy>=1.20.0"]
+pandas = ["pandas>=1.3.0"]
+matplotlib = ["matplotlib>=3.4.0"]
+datascience = [
+    "numpy>=1.20.0",
+    "pandas>=1.3.0",
+    "matplotlib>=3.4.0",
+]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "black>=23.0.0",
+    "mypy>=1.0.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/yourusername/python-debug-visualizer"
+Repository = "https://github.com/yourusername/python-debug-visualizer"
+Issues = "https://github.com/yourusername/python-debug-visualizer/issues"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["pydebugvisualizer*"]
+
+[tool.black]
+line-length = 100
+target-version = ['py38', 'py39', 'py310', 'py311', 'py312']
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true

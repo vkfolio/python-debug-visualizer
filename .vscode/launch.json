@@ -1,0 +1,29 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python: Debug with Visualizer",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {
+                "PYDEVD_WARN_EVALUATION_TIMEOUT": "30",
+                "PYDEVD_UNBLOCK_THREADS_TIMEOUT": "10"
+            }
+        },
+        {
+            "name": "Python: Tree Example",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/example_tree.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {
+                "PYDEVD_WARN_EVALUATION_TIMEOUT": "30",
+                "PYDEVD_UNBLOCK_THREADS_TIMEOUT": "10"
+            }
+        }
+    ]
+}

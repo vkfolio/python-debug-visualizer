@@ -1,0 +1,88 @@
+{
+  "name": "python-debug-visualizer",
+  "displayName": "Python Debug Visualizer",
+  "description": "Visualize Python data structures during debugging - lists, dicts, NumPy arrays, Pandas DataFrames, trees, graphs, and more",
+  "version": "0.1.0",
+  "publisher": "python-debug-visualizer",
+  "engines": {
+    "vscode": "^1.84.0"
+  },
+  "categories": [
+    "Debuggers",
+    "Visualization",
+    "Other"
+  ],
+  "keywords": [
+    "python",
+    "debug",
+    "visualizer",
+    "data structures",
+    "numpy",
+    "pandas",
+    "matplotlib"
+  ],
+  "activationEvents": [
+    "onDebug",
+    "onWebviewPanel:pythonDebugVisualizer"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "pythonDebugVisualizer.newView",
+        "title": "Python Debug Visualizer: New View"
+      },
+      {
+        "command": "pythonDebugVisualizer.visualizeSelection",
+        "title": "Python Debug Visualizer: Visualize Selection"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "pythonDebugVisualizer.visualizeSelection",
+        "key": "shift+f1",
+        "when": "editorTextFocus && editorLangId == python"
+      }
+    ],
+    "configuration": {
+      "title": "Python Debug Visualizer",
+      "properties": {
+        "pythonDebugVisualizer.maxItems": {
+          "type": "number",
+          "default": 1000,
+          "description": "Maximum number of items to display in collections"
+        },
+        "pythonDebugVisualizer.maxDepth": {
+          "type": "number",
+          "default": 10,
+          "description": "Maximum depth for nested structure visualization"
+        },
+        "pythonDebugVisualizer.autoRefresh": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically refresh visualization when stepping through code"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "lint": "eslint src --ext ts"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.10.0",
+    "@types/vscode": "^1.84.0",
+    "@types/ws": "^8.5.10",
+    "@typescript-eslint/eslint-plugin": "^6.13.0",
+    "@typescript-eslint/parser": "^6.13.0",
+    "eslint": "^8.54.0",
+    "typescript": "^5.3.2"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "ws": "^8.14.2"
+  }
+}
