@@ -54,7 +54,7 @@ export class WebviewServer {
     private currentExtractorId: string | undefined;
     private currentPointers: TrackedExpression[] = [];
     private currentWatches: string[] = [];
-    private autoRefreshEnabled: boolean = false;
+    private autoRefreshEnabled: boolean = true;  // Default to enabled
     private debugStepDisposable: { dispose: () => void } | undefined;
 
     constructor(
@@ -77,7 +77,9 @@ export class WebviewServer {
     private setupDebugStepListener(): void {
         if (this.sessionManager) {
             this.debugStepDisposable = this.sessionManager.onDebugStep(() => {
+                console.log('[PDV-DEBUG] onDebugStep fired - autoRefresh:', this.autoRefreshEnabled, 'expression:', this.currentExpression);
                 if (this.autoRefreshEnabled && this.currentExpression) {
+                    console.log('[PDV-DEBUG] Triggering auto-refresh');
                     this.refreshVisualization();
                 }
             });
@@ -408,76 +410,372 @@ export class WebviewServer {
         }
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            padding: 16px;
+            padding: 0;
             background: var(--bg-color);
             color: var(--text-color);
+            min-height: 100vh;
         }
         body.dark {
             --bg-color: #1e1e1e;
-            --text-color: #d4d4d4;
+            --bg-secondary: #252526;
+            --bg-tertiary: #2d2d2d;
+            --text-color: #cccccc;
+            --text-muted: #858585;
             --border-color: #3c3c3c;
-            --input-bg: #2d2d2d;
+            --input-bg: #3c3c3c;
+            --input-focus: #094771;
             --button-bg: #0e639c;
             --button-hover: #1177bb;
+            --button-secondary: #3c3c3c;
+            --accent-color: #0078d4;
+            --success-color: #4ec9b0;
+            --warning-color: #dcdcaa;
+            --error-color: #f14c4c;
             --node-color: #4a9eff;
             --node-highlight: #7ab8ff;
             --edge-color: #666666;
             --tree-line: #555555;
             --table-header-bg: #2d2d2d;
             --table-row-alt: #252525;
+            --shadow: 0 2px 8px rgba(0,0,0,0.3);
         }
         body.light {
-            --bg-color: #ffffff;
+            --bg-color: #f3f3f3;
+            --bg-secondary: #ffffff;
+            --bg-tertiary: #f8f8f8;
             --text-color: #333333;
+            --text-muted: #6e6e6e;
             --border-color: #e0e0e0;
-            --input-bg: #f5f5f5;
-            --button-bg: #007acc;
-            --button-hover: #0098ff;
-            --node-color: #4a9eff;
+            --input-bg: #ffffff;
+            --input-focus: #0078d4;
+            --button-bg: #0078d4;
+            --button-hover: #106ebe;
+            --button-secondary: #e0e0e0;
+            --accent-color: #0078d4;
+            --success-color: #16825d;
+            --warning-color: #c19c00;
+            --error-color: #d32f2f;
+            --node-color: #0078d4;
             --node-highlight: #2080e0;
             --edge-color: #999999;
             --tree-line: #cccccc;
             --table-header-bg: #f0f0f0;
             --table-row-alt: #f8f8f8;
+            --shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
-        .header {
+
+        /* Main Layout */
+        .app-container {
             display: flex;
-            gap: 8px;
-            margin-bottom: 16px;
+            flex-direction: column;
+            height: 100vh;
         }
+
+        /* Toolbar */
+        .toolbar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-color);
+            flex-shrink: 0;
+        }
+        .toolbar-group {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .toolbar-divider {
+            width: 1px;
+            height: 24px;
+            background: var(--border-color);
+            margin: 0 6px;
+        }
+
+        /* Expression Input */
         .expression-input {
             flex: 1;
-            padding: 8px 12px;
+            min-width: 200px;
+            padding: 6px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            background: var(--input-bg);
+            color: var(--text-color);
+            font-family: 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
+            font-size: 13px;
+            transition: border-color 0.15s, box-shadow 0.15s;
+        }
+        .expression-input:focus {
+            outline: none;
+            border-color: var(--accent-color);
+            box-shadow: 0 0 0 1px var(--accent-color);
+        }
+        .expression-input::placeholder {
+            color: var(--text-muted);
+        }
+
+        /* Buttons */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            padding: 6px 12px;
+            border: none;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.15s, opacity 0.15s;
+            white-space: nowrap;
+        }
+        .btn-primary {
+            background: var(--button-bg);
+            color: white;
+        }
+        .btn-primary:hover {
+            background: var(--button-hover);
+        }
+        .btn-secondary {
+            background: var(--button-secondary);
+            color: var(--text-color);
+        }
+        .btn-secondary:hover {
+            opacity: 0.8;
+        }
+        .btn-icon {
+            padding: 6px 8px;
+            min-width: 32px;
+        }
+        .btn-danger {
+            background: var(--error-color);
+            color: white;
+        }
+        .btn-danger:hover {
+            opacity: 0.9;
+        }
+
+        /* Select */
+        .select {
+            padding: 6px 28px 6px 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            background: var(--input-bg);
+            color: var(--text-color);
+            font-size: 12px;
+            cursor: pointer;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23858585' d='M3 4.5L6 8l3-3.5H3z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 8px center;
+        }
+        .select:focus {
+            outline: none;
+            border-color: var(--accent-color);
+        }
+
+        /* Main Content Area */
+        .main-content {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 280px;
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+            overflow-y: auto;
+        }
+
+        /* Collapsible Sections */
+        .section {
+            border-bottom: 1px solid var(--border-color);
+        }
+        .section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 12px;
+            cursor: pointer;
+            user-select: none;
+            transition: background 0.15s;
+        }
+        .section-header:hover {
+            background: var(--bg-tertiary);
+        }
+        .section-title {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-muted);
+        }
+        .section-toggle {
+            font-size: 10px;
+            color: var(--text-muted);
+            transition: transform 0.2s;
+        }
+        .section.expanded .section-toggle {
+            transform: rotate(90deg);
+        }
+        .section-body {
+            display: none;
+            padding: 0 12px 12px 12px;
+        }
+        .section.expanded .section-body {
+            display: block;
+        }
+
+        /* Form Controls */
+        .form-row {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 8px;
+            align-items: center;
+        }
+        .form-input {
+            flex: 1;
+            padding: 6px 10px;
             border: 1px solid var(--border-color);
             border-radius: 4px;
             background: var(--input-bg);
             color: var(--text-color);
             font-family: 'Fira Code', 'Consolas', monospace;
-            font-size: 14px;
+            font-size: 12px;
         }
-        .refresh-button {
-            padding: 8px 16px;
-            border: none;
-            border-radius: 4px;
-            background: var(--button-bg);
-            color: white;
-            cursor: pointer;
-            font-size: 14px;
+        .form-input:focus {
+            outline: none;
+            border-color: var(--accent-color);
         }
-        .refresh-button:hover {
-            background: var(--button-hover);
-        }
-        .extractor-select {
-            padding: 8px 12px;
+        .form-select {
+            padding: 6px 8px;
             border: 1px solid var(--border-color);
             border-radius: 4px;
             background: var(--input-bg);
             color: var(--text-color);
+            font-size: 11px;
+            cursor: pointer;
         }
-        .visualization {
+        .form-color {
+            width: 32px;
+            height: 28px;
+            padding: 2px;
             border: 1px solid var(--border-color);
             border-radius: 4px;
-            min-height: 400px;
+            cursor: pointer;
+            background: var(--input-bg);
+        }
+        .form-btn-remove {
+            padding: 4px 8px;
+            border: none;
+            border-radius: 4px;
+            background: transparent;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 16px;
+            line-height: 1;
+        }
+        .form-btn-remove:hover {
+            background: var(--error-color);
+            color: white;
+        }
+        .form-btn-add {
+            width: 100%;
+            padding: 6px;
+            border: 1px dashed var(--border-color);
+            border-radius: 4px;
+            background: transparent;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 11px;
+            transition: all 0.15s;
+        }
+        .form-btn-add:hover {
+            border-color: var(--accent-color);
+            color: var(--accent-color);
+        }
+
+        /* Checkbox */
+        .checkbox-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 0;
+            border-top: 1px solid var(--border-color);
+            margin-top: 8px;
+        }
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: var(--text-color);
+            cursor: pointer;
+        }
+        .checkbox-label input {
+            cursor: pointer;
+            accent-color: var(--accent-color);
+        }
+
+        /* Visualization Panel */
+        .vis-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            background: var(--bg-color);
+        }
+
+        /* Watch Display */
+        .watch-panel {
+            padding: 8px 12px;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-color);
+            display: none;
+        }
+        .watch-panel.visible {
+            display: block;
+        }
+        .watch-panel-title {
+            font-size: 10px;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+        .watch-items {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .watch-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            background: var(--bg-tertiary);
+            border-radius: 4px;
+            font-family: 'Fira Code', 'Consolas', monospace;
+            font-size: 12px;
+        }
+        .watch-name {
+            color: var(--success-color);
+        }
+        .watch-equals {
+            color: var(--text-muted);
+        }
+        .watch-value {
+            color: var(--warning-color);
+        }
+
+        /* Visualization Area */
+        .visualization {
+            flex: 1;
             overflow: auto;
             position: relative;
         }
@@ -485,22 +783,23 @@ export class WebviewServer {
             padding: 16px;
         }
         .error {
-            color: #f14c4c;
+            color: var(--error-color);
             white-space: pre-wrap;
             font-family: monospace;
             padding: 16px;
         }
         .message {
-            color: var(--text-color);
-            opacity: 0.7;
-            padding: 16px;
+            color: var(--text-muted);
+            padding: 24px;
+            text-align: center;
+            font-size: 14px;
         }
         pre {
             white-space: pre-wrap;
             word-wrap: break-word;
             font-family: 'Fira Code', 'Consolas', monospace;
             font-size: 13px;
-            line-height: 1.4;
+            line-height: 1.5;
         }
 
         /* Graph Container */
@@ -665,6 +964,66 @@ export class WebviewServer {
         .grid-cell-marked {
             background: rgba(255, 200, 0, 0.3) !important;
             font-weight: bold;
+        }
+
+        /* Maze Grid Styles */
+        .maze-grid {
+            border-spacing: 2px;
+            border-collapse: separate;
+        }
+        .maze-grid td {
+            min-width: 36px;
+            height: 36px;
+            padding: 4px;
+            border-radius: 4px;
+            position: relative;
+            transition: all 0.15s ease;
+        }
+        .maze-cell {
+            position: relative;
+        }
+        .maze-cell .cell-content {
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .cell-marker-label {
+            position: absolute;
+            top: 2px;
+            right: 3px;
+            font-size: 8px;
+            font-weight: bold;
+            color: #fff;
+            text-shadow: 0 0 2px rgba(0,0,0,0.8);
+        }
+        .maze-current {
+            animation: pulse-current 1s ease-in-out infinite;
+        }
+        @keyframes pulse-current {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+        /* Maze cell colors - walls vs paths */
+        .maze-wall {
+            background: #333333 !important;
+            color: #666 !important;
+        }
+        .maze-path {
+            background: #ffffff !important;
+            color: #333 !important;
+        }
+        body.dark .maze-path {
+            background: #2d2d2d !important;
+            color: #ccc !important;
+        }
+        .maze-visited {
+            background: #90caf9 !important;
+        }
+        body.dark .maze-visited {
+            background: #1565c0 !important;
+        }
+        .maze-in-path {
+            background: #4caf50 !important;
+            color: #fff !important;
         }
 
         /* Pointer Configuration Styles */
@@ -1000,71 +1359,92 @@ export class WebviewServer {
     </style>
 </head>
 <body class="dark">
-    <div class="header">
-        <input type="text" class="expression-input" id="expression" placeholder="Enter expression(s) - comma-separated for side-by-side (e.g., tree1, tree2)">
-        <select class="extractor-select" id="extractor">
-            <option value="">Auto</option>
-        </select>
-        <button class="refresh-button" id="refresh">Refresh</button>
-    </div>
-
-    <div class="pointer-config" id="pointer-config">
-        <div class="pointer-config-header" id="pointer-config-header">
-            <h3>Pointer Tracking</h3>
-            <span class="pointer-config-toggle">[+]</span>
-        </div>
-        <div class="pointer-config-body" id="pointer-config-body">
-            <div id="pointer-rows">
-                <div class="pointer-row" data-index="0">
-                    <input type="text" placeholder="Pointer 1 (e.g., left)" data-field="expression">
-                    <select data-field="type" title="Pointer type">
-                        <option value="object">Object (for trees/lists)</option>
-                        <option value="index">Index (for arrays)</option>
-                    </select>
-                    <input type="color" value="#22c55e" data-field="color" title="Marker color">
-                    <button class="remove-pointer" title="Remove">×</button>
-                </div>
-                <div class="pointer-row" data-index="1">
-                    <input type="text" placeholder="Pointer 2 (e.g., right)" data-field="expression">
-                    <select data-field="type" title="Pointer type">
-                        <option value="object">Object (for trees/lists)</option>
-                        <option value="index">Index (for arrays)</option>
-                    </select>
-                    <input type="color" value="#ef4444" data-field="color" title="Marker color">
-                    <button class="remove-pointer" title="Remove">×</button>
-                </div>
-            </div>
-            <button class="add-pointer-btn" id="add-pointer">+ Add Pointer</button>
-            <div class="auto-refresh-row">
-                <label>
-                    <input type="checkbox" id="auto-refresh">
-                    Auto-refresh on debug step
-                </label>
+    <div class="app-container">
+        <!-- Toolbar -->
+        <div class="toolbar">
+            <input type="text" class="expression-input" id="expression" placeholder="Enter expression (e.g., root, nums) — use comma for side-by-side">
+            <div class="toolbar-group">
+                <select class="select" id="extractor" title="Visualization type">
+                    <option value="">Auto</option>
+                </select>
+                <button class="btn btn-primary" id="refresh" title="Refresh (Enter)">Refresh</button>
+                <button class="btn btn-secondary" id="reset" title="Reset all">Reset</button>
             </div>
         </div>
-    </div>
 
-    <div class="watch-config" id="watch-config">
-        <div class="watch-config-header" id="watch-config-header">
-            <h3>Watch Variables</h3>
-            <span class="watch-config-toggle">[+]</span>
-        </div>
-        <div class="watch-config-body" id="watch-config-body">
-            <div id="watch-rows">
-                <div class="watch-row" data-index="0">
-                    <input type="text" placeholder="Variable (e.g., curr)" data-field="expression">
-                    <button class="remove-watch" title="Remove">×</button>
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Sidebar -->
+            <div class="sidebar">
+                <!-- Pointer Tracking Section -->
+                <div class="section expanded" id="pointer-section">
+                    <div class="section-header" id="pointer-config-header">
+                        <span class="section-title">Pointer Tracking</span>
+                        <span class="section-toggle">▶</span>
+                    </div>
+                    <div class="section-body" id="pointer-config-body">
+                        <div id="pointer-rows">
+                            <div class="form-row" data-index="0">
+                                <input type="text" class="form-input" placeholder="e.g., slow" data-field="expression">
+                                <select class="form-select" data-field="type" title="Pointer type">
+                                    <option value="object">Object</option>
+                                    <option value="index">Index</option>
+                                </select>
+                                <input type="color" class="form-color" value="#22c55e" data-field="color">
+                                <button class="form-btn-remove" title="Remove">×</button>
+                            </div>
+                            <div class="form-row" data-index="1">
+                                <input type="text" class="form-input" placeholder="e.g., fast" data-field="expression">
+                                <select class="form-select" data-field="type" title="Pointer type">
+                                    <option value="object">Object</option>
+                                    <option value="index">Index</option>
+                                </select>
+                                <input type="color" class="form-color" value="#ef4444" data-field="color">
+                                <button class="form-btn-remove" title="Remove">×</button>
+                            </div>
+                        </div>
+                        <button class="form-btn-add" id="add-pointer">+ Add Pointer</button>
+                        <div class="checkbox-row">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="auto-refresh" checked>
+                                Auto-refresh on step
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Watch Variables Section -->
+                <div class="section expanded" id="watch-section">
+                    <div class="section-header" id="watch-config-header">
+                        <span class="section-title">Watch Variables</span>
+                        <span class="section-toggle">▶</span>
+                    </div>
+                    <div class="section-body" id="watch-config-body">
+                        <div id="watch-rows">
+                            <div class="form-row" data-index="0">
+                                <input type="text" class="form-input" placeholder="e.g., i, count" data-field="expression">
+                                <button class="form-btn-remove" title="Remove">×</button>
+                            </div>
+                        </div>
+                        <button class="form-btn-add" id="add-watch">+ Add Watch</button>
+                    </div>
                 </div>
             </div>
-            <button class="add-watch-btn" id="add-watch">+ Add Watch</button>
+
+            <!-- Visualization Container -->
+            <div class="vis-container">
+                <!-- Watch Panel (shows values) -->
+                <div class="watch-panel" id="watch-display">
+                    <div class="watch-panel-title">Watch Values</div>
+                    <div class="watch-items" id="watch-items"></div>
+                </div>
+
+                <!-- Visualization Area -->
+                <div class="visualization" id="visualization">
+                    <p class="message">Enter an expression to visualize</p>
+                </div>
+            </div>
         </div>
-    </div>
-
-    <div class="watch-display" id="watch-display" style="display: none;">
-    </div>
-
-    <div class="visualization" id="visualization">
-        <p class="message">Enter an expression to visualize</p>
     </div>
 
     <script>
@@ -1072,22 +1452,26 @@ export class WebviewServer {
         const expressionInput = document.getElementById('expression');
         const extractorSelect = document.getElementById('extractor');
         const refreshButton = document.getElementById('refresh');
+        const resetButton = document.getElementById('reset');
         const visualization = document.getElementById('visualization');
+        const pointerSection = document.getElementById('pointer-section');
         const pointerConfigHeader = document.getElementById('pointer-config-header');
         const pointerConfigBody = document.getElementById('pointer-config-body');
         const pointerRows = document.getElementById('pointer-rows');
         const addPointerBtn = document.getElementById('add-pointer');
         const autoRefreshCheckbox = document.getElementById('auto-refresh');
+        const watchSection = document.getElementById('watch-section');
         const watchConfigHeader = document.getElementById('watch-config-header');
         const watchConfigBody = document.getElementById('watch-config-body');
         const watchRows = document.getElementById('watch-rows');
         const addWatchBtn = document.getElementById('add-watch');
         const watchDisplay = document.getElementById('watch-display');
+        const watchItems = document.getElementById('watch-items');
 
         let currentState = null;
-        let currentStates = null;  // For multiple expressions
+        let currentStates = null;
         let currentNetwork = null;
-        let currentNetworks = [];  // For multiple networks
+        let currentNetworks = [];
         let isDarkTheme = true;
         let pointerColors = ['#22c55e', '#ef4444', '#3b82f6', '#f59e0b', '#8b5cf6', '#ec4899'];
 
@@ -1096,12 +1480,10 @@ export class WebviewServer {
 
             switch (message.type) {
                 case 'state':
-                    // Check for multiple states (side-by-side)
                     if (message.states && message.states.length > 0) {
                         currentStates = message.states;
                         currentState = null;
                         renderMultipleStates(message.states);
-                        // Update watch values if present
                         if (message.state && message.state.watchValues) {
                             renderWatchValues(message.state.watchValues);
                         }
@@ -1109,7 +1491,6 @@ export class WebviewServer {
                         currentState = message.state;
                         currentStates = null;
                         renderState(message.state);
-                        // Update watch values if present
                         if (message.state && message.state.watchValues) {
                             renderWatchValues(message.state.watchValues);
                         }
@@ -1118,7 +1499,6 @@ export class WebviewServer {
                 case 'theme':
                     isDarkTheme = message.theme === 'dark';
                     document.body.className = message.theme;
-                    // Re-render if we have data
                     if (currentStates && currentStates.length > 0) {
                         renderMultipleStates(currentStates);
                     } else if (currentState && currentState.kind === 'data') {
@@ -1138,6 +1518,58 @@ export class WebviewServer {
             sendExpression();
         });
 
+        // Reset button - clear all settings
+        resetButton.addEventListener('click', () => {
+            // Clear expression
+            expressionInput.value = '';
+
+            // Reset extractor
+            extractorSelect.value = '';
+
+            // Clear pointer rows and reset to default two
+            pointerRows.innerHTML = \`
+                <div class="form-row" data-index="0">
+                    <input type="text" class="form-input" placeholder="e.g., slow" data-field="expression">
+                    <select class="form-select" data-field="type">
+                        <option value="object">Object</option>
+                        <option value="index">Index</option>
+                    </select>
+                    <input type="color" class="form-color" value="#22c55e" data-field="color">
+                    <button class="form-btn-remove" title="Remove">×</button>
+                </div>
+                <div class="form-row" data-index="1">
+                    <input type="text" class="form-input" placeholder="e.g., fast" data-field="expression">
+                    <select class="form-select" data-field="type">
+                        <option value="object">Object</option>
+                        <option value="index">Index</option>
+                    </select>
+                    <input type="color" class="form-color" value="#ef4444" data-field="color">
+                    <button class="form-btn-remove" title="Remove">×</button>
+                </div>
+            \`;
+            pointerRows.querySelectorAll('.form-row').forEach(setupPointerRowListeners);
+
+            // Clear watch rows and reset to default one
+            watchRows.innerHTML = \`
+                <div class="form-row" data-index="0">
+                    <input type="text" class="form-input" placeholder="e.g., i, count" data-field="expression">
+                    <button class="form-btn-remove" title="Remove">×</button>
+                </div>
+            \`;
+            watchRows.querySelectorAll('.form-row').forEach(setupWatchRowListeners);
+
+            // Hide watch display
+            watchDisplay.classList.remove('visible');
+
+            // Clear visualization
+            visualization.innerHTML = '<p class="message">Enter an expression to visualize</p>';
+
+            // Send reset to server
+            ws.send(JSON.stringify({ type: 'setPointers', pointers: [] }));
+            ws.send(JSON.stringify({ type: 'setWatches', watches: [] }));
+            ws.send(JSON.stringify({ type: 'setExpression', expression: '' }));
+        });
+
         extractorSelect.addEventListener('change', () => {
             ws.send(JSON.stringify({
                 type: 'setPreferredExtractor',
@@ -1145,29 +1577,33 @@ export class WebviewServer {
             }));
         });
 
-        // Pointer configuration toggle
+        // Section toggle (pointer tracking)
         pointerConfigHeader.addEventListener('click', () => {
-            const isExpanded = pointerConfigBody.classList.toggle('expanded');
-            pointerConfigHeader.querySelector('.pointer-config-toggle').textContent = isExpanded ? '[-]' : '[+]';
+            pointerSection.classList.toggle('expanded');
+        });
+
+        // Section toggle (watch variables)
+        watchConfigHeader.addEventListener('click', () => {
+            watchSection.classList.toggle('expanded');
         });
 
         // Add pointer button
         addPointerBtn.addEventListener('click', () => {
-            const rows = pointerRows.querySelectorAll('.pointer-row');
+            const rows = pointerRows.querySelectorAll('.form-row');
             const newIndex = rows.length;
             const color = pointerColors[newIndex % pointerColors.length];
 
             const newRow = document.createElement('div');
-            newRow.className = 'pointer-row';
+            newRow.className = 'form-row';
             newRow.dataset.index = newIndex;
             newRow.innerHTML = \`
-                <input type="text" placeholder="Pointer \${newIndex + 1}" data-field="expression">
-                <select data-field="type" title="Pointer type">
-                    <option value="object">Object (for trees/lists)</option>
-                    <option value="index">Index (for arrays)</option>
+                <input type="text" class="form-input" placeholder="Pointer \${newIndex + 1}" data-field="expression">
+                <select class="form-select" data-field="type">
+                    <option value="object">Object</option>
+                    <option value="index">Index</option>
                 </select>
-                <input type="color" value="\${color}" data-field="color" title="Marker color">
-                <button class="remove-pointer" title="Remove">×</button>
+                <input type="color" class="form-color" value="\${color}" data-field="color">
+                <button class="form-btn-remove" title="Remove">×</button>
             \`;
             pointerRows.appendChild(newRow);
             setupPointerRowListeners(newRow);
@@ -1175,7 +1611,7 @@ export class WebviewServer {
 
         // Setup listeners for pointer rows
         function setupPointerRowListeners(row) {
-            const removeBtn = row.querySelector('.remove-pointer');
+            const removeBtn = row.querySelector('.form-btn-remove');
             removeBtn.addEventListener('click', () => {
                 row.remove();
                 sendPointers();
@@ -1195,17 +1631,16 @@ export class WebviewServer {
         }
 
         // Setup existing pointer rows
-        document.querySelectorAll('.pointer-row').forEach(setupPointerRowListeners);
+        pointerRows.querySelectorAll('.form-row').forEach(setupPointerRowListeners);
 
         // Send pointers to server
         function sendPointers() {
             const pointers = [];
-            pointerRows.querySelectorAll('.pointer-row').forEach((row, index) => {
+            pointerRows.querySelectorAll('.form-row').forEach((row) => {
                 const expr = row.querySelector('[data-field="expression"]').value.trim();
                 const color = row.querySelector('[data-field="color"]').value;
                 const typeSelect = row.querySelector('[data-field="type"]');
-                const pointerType = typeSelect ? typeSelect.value : 'index';
-                console.log('[PDV-DEBUG] sendPointers - expr:', expr, 'typeSelect:', typeSelect, 'pointerType:', pointerType);
+                const pointerType = typeSelect ? typeSelect.value : 'object';
                 if (expr) {
                     pointers.push({
                         expression: expr,
@@ -1215,8 +1650,6 @@ export class WebviewServer {
                     });
                 }
             });
-
-            console.log('[PDV-DEBUG] Sending pointers:', JSON.stringify(pointers));
             ws.send(JSON.stringify({
                 type: 'setPointers',
                 pointers: pointers
@@ -1231,23 +1664,17 @@ export class WebviewServer {
             }));
         });
 
-        // Watch configuration toggle
-        watchConfigHeader.addEventListener('click', () => {
-            const isExpanded = watchConfigBody.classList.toggle('expanded');
-            watchConfigHeader.querySelector('.watch-config-toggle').textContent = isExpanded ? '[-]' : '[+]';
-        });
-
         // Add watch button
         addWatchBtn.addEventListener('click', () => {
-            const rows = watchRows.querySelectorAll('.watch-row');
+            const rows = watchRows.querySelectorAll('.form-row');
             const newIndex = rows.length;
 
             const newRow = document.createElement('div');
-            newRow.className = 'watch-row';
+            newRow.className = 'form-row';
             newRow.dataset.index = newIndex;
             newRow.innerHTML = \`
-                <input type="text" placeholder="Variable \${newIndex + 1} (e.g., curr)" data-field="expression">
-                <button class="remove-watch" title="Remove">×</button>
+                <input type="text" class="form-input" placeholder="Variable \${newIndex + 1}" data-field="expression">
+                <button class="form-btn-remove" title="Remove">×</button>
             \`;
             watchRows.appendChild(newRow);
             setupWatchRowListeners(newRow);
@@ -1255,7 +1682,7 @@ export class WebviewServer {
 
         // Setup listeners for watch rows
         function setupWatchRowListeners(row) {
-            const removeBtn = row.querySelector('.remove-watch');
+            const removeBtn = row.querySelector('.form-btn-remove');
             removeBtn.addEventListener('click', () => {
                 row.remove();
                 sendWatches();
@@ -1267,18 +1694,17 @@ export class WebviewServer {
         }
 
         // Setup existing watch rows
-        document.querySelectorAll('.watch-row').forEach(setupWatchRowListeners);
+        watchRows.querySelectorAll('.form-row').forEach(setupWatchRowListeners);
 
         // Send watches to server
         function sendWatches() {
             const watches = [];
-            watchRows.querySelectorAll('.watch-row').forEach((row) => {
+            watchRows.querySelectorAll('.form-row').forEach((row) => {
                 const expr = row.querySelector('[data-field="expression"]').value.trim();
                 if (expr) {
                     watches.push(expr);
                 }
             });
-
             ws.send(JSON.stringify({
                 type: 'setWatches',
                 watches: watches
@@ -1288,21 +1714,20 @@ export class WebviewServer {
         // Render watch values in the display panel
         function renderWatchValues(watchValues) {
             if (!watchValues || watchValues.length === 0) {
-                watchDisplay.style.display = 'none';
+                watchDisplay.classList.remove('visible');
                 return;
             }
 
-            watchDisplay.style.display = 'block';
-            let html = '<h4>Watch Values</h4><div class="watch-values">';
+            watchDisplay.classList.add('visible');
+            let html = '';
             for (const wv of watchValues) {
                 html += '<div class="watch-item">';
-                html += '<span class="watch-item-name">' + escapeHtml(wv.name) + '</span>';
-                html += '<span>=</span>';
-                html += '<span class="watch-item-value">' + escapeHtml(wv.value) + '</span>';
+                html += '<span class="watch-name">' + escapeHtml(wv.name) + '</span>';
+                html += '<span class="watch-equals">=</span>';
+                html += '<span class="watch-value">' + escapeHtml(wv.value) + '</span>';
                 html += '</div>';
             }
-            html += '</div>';
-            watchDisplay.innerHTML = html;
+            watchItems.innerHTML = html;
         }
 
         function sendExpression() {
@@ -2117,7 +2542,7 @@ export class WebviewServer {
         }
 
         function renderGrid(data) {
-            let html = '<table class="grid-table">';
+            let html = '<table class="grid-table maze-grid">';
 
             // Column headers
             if (data.columnLabels && data.columnLabels.length > 0) {
@@ -2128,15 +2553,20 @@ export class WebviewServer {
                 html += '</tr></thead>';
             }
 
-            // Grid rows
-            html += '<tbody>';
-            const markers = new Set();
-            if (data.markers) {
+            // Build marker map with color and label info
+            const markerMap = new Map();
+            if (data.markers && Array.isArray(data.markers)) {
                 for (const m of data.markers) {
-                    markers.add(m.row + ',' + m.column);
+                    const key = m.row + ',' + m.column;
+                    if (!markerMap.has(key)) {
+                        markerMap.set(key, []);
+                    }
+                    markerMap.get(key).push(m);
                 }
             }
 
+            // Grid rows
+            html += '<tbody>';
             for (let rowIdx = 0; rowIdx < data.rows.length; rowIdx++) {
                 const row = data.rows[rowIdx];
                 html += '<tr>';
@@ -2144,9 +2574,50 @@ export class WebviewServer {
 
                 for (let colIdx = 0; colIdx < row.columns.length; colIdx++) {
                     const cell = row.columns[colIdx];
-                    const isMarked = markers.has(rowIdx + ',' + colIdx);
-                    const markedClass = isMarked ? ' class="grid-cell-marked"' : '';
-                    html += '<td' + markedClass + '>' + escapeHtml(cell.content || '') + '</td>';
+                    const key = rowIdx + ',' + colIdx;
+                    const cellMarkers = markerMap.get(key);
+
+                    // Build cell styles
+                    let styles = [];
+                    let classes = ['maze-cell'];
+                    let markerLabel = '';
+
+                    // Apply cell background color
+                    if (cell.color) {
+                        styles.push('background-color: ' + cell.color);
+                    }
+
+                    // Apply text color for contrast
+                    if (cell.textColor) {
+                        styles.push('color: ' + cell.textColor);
+                    }
+
+                    // Apply marker styling (marker takes priority for visual effects)
+                    if (cellMarkers && cellMarkers.length > 0) {
+                        classes.push('grid-cell-marked');
+                        const primaryMarker = cellMarkers[0];
+                        if (primaryMarker.color) {
+                            // Use marker color as border/highlight
+                            styles.push('box-shadow: inset 0 0 0 3px ' + primaryMarker.color);
+                        }
+                        // Collect all marker labels
+                        const labels = cellMarkers.filter(m => m.label).map(m => m.label);
+                        if (labels.length > 0) {
+                            markerLabel = '<span class="cell-marker-label">' + escapeHtml(labels.join(', ')) + '</span>';
+                        }
+                        // Special styling for current position
+                        if (cellMarkers.some(m => m.id === 'current' || m.label === 'pos')) {
+                            classes.push('maze-current');
+                        }
+                    }
+
+                    const styleAttr = styles.length > 0 ? ' style="' + styles.join('; ') + '"' : '';
+                    const classAttr = ' class="' + classes.join(' ') + '"';
+
+                    html += '<td' + classAttr + styleAttr + '>';
+                    html += '<span class="cell-content">' + escapeHtml(cell.content || '') + '</span>';
+                    html += markerLabel;
+                    html += '</td>';
                 }
                 html += '</tr>';
             }

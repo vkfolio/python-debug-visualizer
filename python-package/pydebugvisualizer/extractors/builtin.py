@@ -698,3 +698,361 @@ class FallbackExtractor(BaseExtractor):
                 "text": repr(v)
             }
         )]
+
+
+class MazeExtractor(BaseExtractor):
+    """Extractor for maze/grid algorithm visualization.
+
+    Supports:
+    - Plain 2D array of 0s (path) and 1s (wall)
+    - Dict format: {"maze": [[...]], "path": [...], "visited": set(), "current": (r,c)}
+
+    Visualizes with colors:
+    - Walls: dark gray (#333333)
+    - Paths: white (#e8e8e8)
+    - Visited cells: light blue (#90caf9)
+    - Current path: green (#4caf50)
+    - Current position: yellow with animation (#ffc107)
+    """
+
+    @property
+    def id(self) -> str:
+        return "builtin.maze"
+
+    @property
+    def name(self) -> str:
+        return "Maze Visualizer"
+
+    @property
+    def priority(self) -> int:
+        return ExtractorPriority.HIGH  # Higher priority for maze-like data
+
+    def can_extract(self, value: Any, context: ExtractionContext) -> bool:
+        # Check for dict format with "maze" key
+        if isinstance(value, dict) and "maze" in value:
+            maze = value.get("maze")
+            if isinstance(maze, list) and maze and isinstance(maze[0], list):
+                return True
+
+        # Check for plain 2D array of 0s and 1s
+        if isinstance(value, list) and value and isinstance(value[0], list):
+            first_row = value[0]
+            if first_row and all(v in (0, 1) for v in first_row[:20]):
+                return True
+
+        return False
+
+    def get_extractions(
+        self,
+        value: Any,
+        context: ExtractionContext
+    ) -> List[ExtractionCandidate]:
+        candidates = []
+
+        candidates.append(ExtractionCandidate(
+            extractor_id=self.id,
+            extractor_name="Maze Grid",
+            priority=self.priority,
+            extract=lambda v=value: self._extract_maze(v, context)
+        ))
+
+        return candidates
+
+    def _extract_maze(self, value: Any, context: ExtractionContext) -> Dict:
+        """Extract maze data into grid visualization format."""
+        # Parse input - either dict with maze key or plain 2D array
+        if isinstance(value, dict) and "maze" in value:
+            maze = value["maze"]
+            path = value.get("path", [])
+            visited = value.get("visited", set())
+            current = value.get("current", None)
+            start = value.get("start", None)
+            end = value.get("end", None) or value.get("goal", None)
+        else:
+            maze = value
+            path = []
+            visited = set()
+            current = None
+            start = None
+            end = None
+
+        # Convert visited to set if it's a list
+        if isinstance(visited, list):
+            visited = set(tuple(v) if isinstance(v, list) else v for v in visited)
+
+        # Convert path elements to tuples if they're lists
+        if path:
+            path = [tuple(p) if isinstance(p, list) else p for p in path]
+        path_set = set(path)
+
+        # Convert start and end to tuples
+        if start and isinstance(start, list):
+            start = tuple(start)
+        if end and isinstance(end, list):
+            end = tuple(end)
+
+        # Build grid rows with colors
+        rows = []
+        markers = []
+
+        for row_idx, row in enumerate(maze[:context.max_items]):
+            columns = []
+            for col_idx, cell in enumerate(row[:context.max_items]):
+                pos = (row_idx, col_idx)
+
+                # Determine cell color and content based on state
+                if cell == 1:
+                    # Wall
+                    color = "#333333"
+                    content = "█"
+                elif pos == start:
+                    # Start position - bright green
+                    color = "#4caf50"
+                    content = "S"
+                elif pos == end:
+                    # Goal position - bright red/orange
+                    color = "#ff5722"
+                    content = "G"
+                elif pos in path_set:
+                    # In current path - green trail
+                    color = "#81c784"
+                    content = "○"
+                elif pos in visited:
+                    # Visited but not in path - light blue
+                    color = "#64b5f6"
+                    content = "·"
+                else:
+                    # Open path - light
+                    color = "#e8e8e8"
+                    content = ""
+
+                columns.append({
+                    "content": content,
+                    "color": color
+                })
+
+            rows.append({
+                "label": str(row_idx),
+                "columns": columns
+            })
+
+        # Add marker for start position
+        if start:
+            markers.append({
+                "id": "start",
+                "row": start[0],
+                "column": start[1],
+                "color": "#4caf50",
+                "label": "S"
+            })
+
+        # Add marker for goal/end position
+        if end:
+            markers.append({
+                "id": "goal",
+                "row": end[0],
+                "column": end[1],
+                "color": "#ff5722",
+                "label": "G"
+            })
+
+        # Add marker for current position (takes priority visually)
+        if current:
+            current = tuple(current) if isinstance(current, list) else current
+            markers.append({
+                "id": "current",
+                "row": current[0],
+                "column": current[1],
+                "color": "#ffc107",
+                "label": "→"
+            })
+
+        # Add path step numbers (skip start and end as they have their own labels)
+        for i, pos in enumerate(path):
+            if isinstance(pos, (list, tuple)) and len(pos) >= 2:
+                pos_tuple = (pos[0], pos[1])
+                # Skip start and end positions - they already have labels
+                if pos_tuple == start or pos_tuple == end:
+                    continue
+                row, col = pos[0], pos[1]
+                if row < len(maze) and col < len(maze[0]):
+                    markers.append({
+                        "id": f"path_{i}",
+                        "row": row,
+                        "column": col,
+                        "color": "#81c784",
+                        "label": str(i + 1) if i < 15 else ""  # Show step numbers for first 15
+                    })
+
+        return {
+            "kind": {"grid": True},
+            "rows": rows,
+            "columnLabels": [{"label": str(j)} for j in range(len(maze[0]) if maze else 0)],
+            "markers": markers
+        }
+
+
+class SudokuExtractor(BaseExtractor):
+    """Extractor for Sudoku/number board visualization.
+
+    Supports:
+    - 2D array of numbers (4x4, 9x9, etc.)
+    - Dict format: {"board": [[...]], "current": (r,c), "original": [[...]], "trying": num}
+
+    Visualizes with colors:
+    - Empty cells (0): light gray
+    - Original numbers: bold, dark
+    - Filled numbers: blue
+    - Current cell: yellow highlight
+    - Invalid placement: red
+    """
+
+    @property
+    def id(self) -> str:
+        return "builtin.sudoku"
+
+    @property
+    def name(self) -> str:
+        return "Sudoku/Board Visualizer"
+
+    @property
+    def priority(self) -> int:
+        return ExtractorPriority.HIGH
+
+    def can_extract(self, value: Any, context: ExtractionContext) -> bool:
+        # Check for dict format with "board" key
+        if isinstance(value, dict) and "board" in value:
+            board = value.get("board")
+            if isinstance(board, list) and board and isinstance(board[0], list):
+                return True
+
+        # Check for 2D array of numbers (not just 0s and 1s like maze)
+        if isinstance(value, list) and value and isinstance(value[0], list):
+            first_row = value[0]
+            if first_row:
+                # Check if it contains numbers beyond just 0 and 1 (sudoku has 0-9)
+                sample = [v for row in value[:4] for v in row[:4] if isinstance(v, int)]
+                if sample and any(v > 1 for v in sample):
+                    return True
+
+        return False
+
+    def get_extractions(
+        self,
+        value: Any,
+        context: ExtractionContext
+    ) -> List[ExtractionCandidate]:
+        candidates = []
+
+        candidates.append(ExtractionCandidate(
+            extractor_id=self.id,
+            extractor_name="Sudoku Board",
+            priority=self.priority,
+            extract=lambda v=value: self._extract_sudoku(v, context)
+        ))
+
+        return candidates
+
+    def _extract_sudoku(self, value: Any, context: ExtractionContext) -> Dict:
+        """Extract sudoku board into grid visualization format."""
+        # Parse input
+        if isinstance(value, dict) and "board" in value:
+            board = value["board"]
+            original = value.get("original", None)
+            current = value.get("current", None)
+            trying = value.get("trying", None)
+        else:
+            board = value
+            original = None
+            current = None
+            trying = None
+
+        # If no original provided, treat non-zero values as original
+        if original is None:
+            original = [[cell if cell != 0 else 0 for cell in row] for row in board]
+
+        # Convert current to tuple
+        if current and isinstance(current, list):
+            current = tuple(current)
+
+        # Determine grid size for subgrid highlighting
+        size = len(board)
+        subgrid_size = int(size ** 0.5)  # 2 for 4x4, 3 for 9x9
+
+        # Build grid rows
+        rows = []
+        markers = []
+
+        for row_idx, row in enumerate(board):
+            columns = []
+            for col_idx, cell in enumerate(row):
+                is_original = original[row_idx][col_idx] != 0
+                is_empty = cell == 0
+                is_current = current and (row_idx, col_idx) == current
+
+                # Determine cell color, text color, and content
+                if is_current:
+                    # Currently being filled - yellow
+                    if trying is not None:
+                        color = "#fff3cd"  # Light yellow
+                        text_color = "#333333"  # Dark text
+                        content = str(trying) if trying > 0 else "?"
+                    else:
+                        color = "#ffc107"
+                        text_color = "#333333"
+                        content = str(cell) if cell > 0 else "?"
+                elif is_empty:
+                    # Empty cell - light gray
+                    color = "#f5f5f5"
+                    text_color = "#999999"  # Muted for empty
+                    content = "·"
+                elif is_original:
+                    # Original number - darker background, bold dark text
+                    color = "#e0e0e0"
+                    text_color = "#1a1a1a"  # Very dark for original numbers
+                    content = str(cell)
+                else:
+                    # Filled by algorithm - blue tint with dark text
+                    color = "#bbdefb"
+                    text_color = "#1565c0"  # Dark blue text
+                    content = str(cell)
+
+                # Add subgrid border effect via slightly different shade
+                subgrid_row = row_idx // subgrid_size
+                subgrid_col = col_idx // subgrid_size
+                if (subgrid_row + subgrid_col) % 2 == 1:
+                    # Alternate subgrid - slightly different shade
+                    if color == "#f5f5f5":
+                        color = "#eeeeee"
+                    elif color == "#e0e0e0":
+                        color = "#d5d5d5"
+                    elif color == "#bbdefb":
+                        color = "#90caf9"
+
+                columns.append({
+                    "content": content,
+                    "color": color,
+                    "textColor": text_color
+                })
+
+            rows.append({
+                "label": str(row_idx),
+                "columns": columns
+            })
+
+        # Add marker for current cell
+        if current:
+            markers.append({
+                "id": "current",
+                "row": current[0],
+                "column": current[1],
+                "color": "#ffc107",
+                "label": f"→{trying}" if trying else "→"
+            })
+
+        return {
+            "kind": {"grid": True},
+            "rows": rows,
+            "columnLabels": [{"label": str(j)} for j in range(len(board[0]) if board else 0)],
+            "markers": markers
+        }

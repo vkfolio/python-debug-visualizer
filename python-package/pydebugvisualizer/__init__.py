@@ -64,6 +64,8 @@ def _register_default_extractors() -> None:
         TupleExtractor,
         StringExtractor,
         FallbackExtractor,
+        MazeExtractor,
+        SudokuExtractor,
     )
     from .extractors.custom import (
         CustomVisualizationExtractor,
@@ -79,6 +81,8 @@ def _register_default_extractors() -> None:
     registry.register(TupleExtractor())
     registry.register(StringExtractor())
     registry.register(FallbackExtractor())
+    registry.register(MazeExtractor())
+    registry.register(SudokuExtractor())
 
     # Register custom protocol extractors
     registry.register(CustomVisualizationExtractor())

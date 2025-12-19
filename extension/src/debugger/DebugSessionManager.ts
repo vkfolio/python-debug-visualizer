@@ -92,6 +92,7 @@ export class DebugSessionManager implements vscode.Disposable {
      * Fire the debug step event (called by tracker when debugger stops).
      */
     fireDebugStep(): void {
+        console.log('[PDV-DEBUG] Firing debug step event');
         this.onDebugStepEmitter.fire();
     }
 
@@ -187,6 +188,7 @@ class DebugAdapterTracker implements vscode.DebugAdapterTracker {
     onDidSendMessage(message: any): void {
         // Capture stopped events to track the current frame
         if (message.type === 'event' && message.event === 'stopped') {
+            console.log('[PDV-DEBUG] Debugger stopped event received');
             // When stopped, get the top frame
             this.updateActiveFrame();
         }

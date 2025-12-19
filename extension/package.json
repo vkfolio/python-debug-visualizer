@@ -7,7 +7,7 @@
   "license": "MIT",
   "displayName": "PyDebug Visualizer Helper",
   "description": "Visualize Python data structures during debugging - lists, dicts, NumPy arrays, Pandas DataFrames, trees, graphs, and more",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "publisher": "vigneshkarnika",
   "engines": {
     "vscode": "^1.84.0"

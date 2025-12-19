@@ -23,6 +23,8 @@ from .builtin import (
     TupleExtractor,
     StringExtractor,
     FallbackExtractor,
+    MazeExtractor,
+    SudokuExtractor,
 )
 from .custom import (
     CustomVisualizationExtractor,
@@ -47,6 +49,8 @@ __all__ = [
     "TupleExtractor",
     "StringExtractor",
     "FallbackExtractor",
+    "MazeExtractor",
+    "SudokuExtractor",
     # Custom protocol extractors
     "CustomVisualizationExtractor",
     "GetVisualizationDataExtractor",
