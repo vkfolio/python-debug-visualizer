@@ -408,6 +408,45 @@ export class WebviewServer {
             margin: 0;
             padding: 0;
         }
+
+        /* Design System Tokens */
+        :root {
+            /* Spacing (4px base unit) */
+            --space-1: 4px;
+            --space-2: 8px;
+            --space-3: 12px;
+            --space-4: 16px;
+            --space-5: 20px;
+            --space-6: 24px;
+            --space-8: 32px;
+            --space-10: 40px;
+
+            /* Border Radius */
+            --radius-sm: 2px;
+            --radius-md: 4px;
+            --radius-lg: 6px;
+            --radius-xl: 8px;
+            --radius-full: 9999px;
+
+            /* Typography */
+            --text-xs: 10px;
+            --text-sm: 11px;
+            --text-base: 13px;
+            --text-lg: 14px;
+            --text-xl: 16px;
+            --font-normal: 400;
+            --font-medium: 500;
+            --font-semibold: 600;
+            --font-bold: 700;
+            --leading-tight: 1.25;
+            --leading-normal: 1.5;
+
+            /* Transitions */
+            --transition-fast: 100ms ease;
+            --transition-normal: 150ms ease;
+            --transition-slow: 250ms ease;
+        }
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
             padding: 0;
@@ -438,6 +477,12 @@ export class WebviewServer {
             --table-header-bg: #2d2d2d;
             --table-row-alt: #252525;
             --shadow: 0 2px 8px rgba(0,0,0,0.3);
+            /* Shadow System */
+            --shadow-sm: 0 1px 2px rgba(0,0,0,0.3);
+            --shadow-md: 0 2px 4px rgba(0,0,0,0.4);
+            --shadow-lg: 0 4px 8px rgba(0,0,0,0.5);
+            --shadow-xl: 0 8px 16px rgba(0,0,0,0.6);
+            --shadow-inner: inset 0 1px 2px rgba(0,0,0,0.3);
         }
         body.light {
             --bg-color: #f3f3f3;
@@ -462,6 +507,33 @@ export class WebviewServer {
             --table-header-bg: #f0f0f0;
             --table-row-alt: #f8f8f8;
             --shadow: 0 2px 8px rgba(0,0,0,0.1);
+            /* Shadow System */
+            --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+            --shadow-md: 0 2px 4px rgba(0,0,0,0.1);
+            --shadow-lg: 0 4px 8px rgba(0,0,0,0.15);
+            --shadow-xl: 0 8px 16px rgba(0,0,0,0.2);
+            --shadow-inner: inset 0 1px 2px rgba(0,0,0,0.06);
+        }
+
+        /* Custom Scrollbars */
+        ::-webkit-scrollbar {
+            width: 10px;
+            height: 10px;
+        }
+        ::-webkit-scrollbar-track {
+            background: var(--bg-secondary);
+            border-radius: var(--radius-md);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: var(--border-color);
+            border-radius: var(--radius-md);
+            border: 2px solid var(--bg-secondary);
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--text-muted);
+        }
+        ::-webkit-scrollbar-corner {
+            background: var(--bg-secondary);
         }
 
         /* Main Layout */
@@ -497,22 +569,27 @@ export class WebviewServer {
         .expression-input {
             flex: 1;
             min-width: 200px;
-            padding: 6px 12px;
+            padding: var(--space-2) var(--space-3);
             border: 1px solid var(--border-color);
-            border-radius: 4px;
+            border-radius: var(--radius-md);
             background: var(--input-bg);
             color: var(--text-color);
             font-family: 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
-            font-size: 13px;
-            transition: border-color 0.15s, box-shadow 0.15s;
+            font-size: var(--text-base);
+            line-height: var(--leading-normal);
+            transition: border-color var(--transition-normal), box-shadow var(--transition-normal);
+        }
+        .expression-input:hover:not(:focus) {
+            border-color: var(--text-muted);
         }
         .expression-input:focus {
             outline: none;
             border-color: var(--accent-color);
-            box-shadow: 0 0 0 1px var(--accent-color);
+            box-shadow: 0 0 0 3px rgba(0, 120, 212, 0.15);
         }
         .expression-input::placeholder {
             color: var(--text-muted);
+            opacity: 0.8;
         }
 
         /* Buttons */
@@ -520,59 +597,214 @@ export class WebviewServer {
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            gap: 4px;
-            padding: 6px 12px;
-            border: none;
-            border-radius: 4px;
-            font-size: 12px;
-            font-weight: 500;
+            gap: var(--space-1);
+            padding: var(--space-2) var(--space-3);
+            border: 1px solid transparent;
+            border-radius: var(--radius-md);
+            font-size: var(--text-sm);
+            font-weight: var(--font-medium);
             cursor: pointer;
-            transition: background 0.15s, opacity 0.15s;
+            transition: all var(--transition-normal);
             white-space: nowrap;
+            user-select: none;
+        }
+        .btn:focus-visible {
+            outline: 2px solid var(--accent-color);
+            outline-offset: 2px;
+        }
+        .btn:active:not(:disabled) {
+            transform: scale(0.97);
+        }
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
         }
         .btn-primary {
             background: var(--button-bg);
             color: white;
+            border-color: var(--button-bg);
         }
-        .btn-primary:hover {
+        .btn-primary:hover:not(:disabled) {
             background: var(--button-hover);
+            border-color: var(--button-hover);
+            box-shadow: var(--shadow-sm);
         }
         .btn-secondary {
             background: var(--button-secondary);
             color: var(--text-color);
+            border-color: var(--border-color);
         }
-        .btn-secondary:hover {
-            opacity: 0.8;
+        .btn-secondary:hover:not(:disabled) {
+            background: var(--bg-tertiary);
+            border-color: var(--text-muted);
+        }
+        .btn-ghost {
+            background: transparent;
+            color: var(--text-color);
+            border-color: transparent;
+        }
+        .btn-ghost:hover:not(:disabled) {
+            background: var(--bg-tertiary);
         }
         .btn-icon {
-            padding: 6px 8px;
+            padding: var(--space-2);
             min-width: 32px;
+            height: 32px;
         }
         .btn-danger {
             background: var(--error-color);
             color: white;
+            border-color: var(--error-color);
         }
-        .btn-danger:hover {
+        .btn-danger:hover:not(:disabled) {
             opacity: 0.9;
+            box-shadow: var(--shadow-sm);
         }
 
         /* Select */
         .select {
-            padding: 6px 28px 6px 10px;
+            padding: var(--space-2) var(--space-8) var(--space-2) var(--space-3);
             border: 1px solid var(--border-color);
-            border-radius: 4px;
+            border-radius: var(--radius-md);
             background: var(--input-bg);
             color: var(--text-color);
-            font-size: 12px;
+            font-size: var(--text-sm);
             cursor: pointer;
             appearance: none;
             background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23858585' d='M3 4.5L6 8l3-3.5H3z'/%3E%3C/svg%3E");
             background-repeat: no-repeat;
-            background-position: right 8px center;
+            background-position: right var(--space-2) center;
+            transition: border-color var(--transition-normal), box-shadow var(--transition-normal);
+        }
+        .select:hover:not(:focus) {
+            border-color: var(--text-muted);
         }
         .select:focus {
             outline: none;
             border-color: var(--accent-color);
+            box-shadow: 0 0 0 3px rgba(0, 120, 212, 0.15);
+        }
+
+        /* Loading States */
+        .loading-spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid var(--border-color);
+            border-top-color: var(--accent-color);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        .loading-spinner-lg {
+            width: 32px;
+            height: 32px;
+            border-width: 3px;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .skeleton {
+            background: linear-gradient(
+                90deg,
+                var(--bg-tertiary) 25%,
+                var(--bg-secondary) 50%,
+                var(--bg-tertiary) 75%
+            );
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+            border-radius: var(--radius-md);
+        }
+        @keyframes shimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+        .skeleton-text {
+            height: 14px;
+            margin-bottom: var(--space-2);
+        }
+        .skeleton-rect {
+            height: 100px;
+        }
+        .loading-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: var(--space-8);
+            gap: var(--space-3);
+            color: var(--text-muted);
+        }
+        .loading-text {
+            font-size: var(--text-sm);
+        }
+
+        /* Empty States */
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: var(--space-8);
+            text-align: center;
+            color: var(--text-muted);
+        }
+        .empty-state-icon {
+            width: 48px;
+            height: 48px;
+            margin-bottom: var(--space-4);
+            opacity: 0.5;
+        }
+        .empty-state-title {
+            font-size: var(--text-lg);
+            font-weight: var(--font-semibold);
+            margin-bottom: var(--space-2);
+            color: var(--text-color);
+        }
+        .empty-state-description {
+            font-size: var(--text-sm);
+            max-width: 280px;
+            line-height: var(--leading-normal);
+        }
+        .empty-state-action {
+            margin-top: var(--space-4);
+        }
+
+        /* Toast Notifications */
+        .toast-container {
+            position: fixed;
+            bottom: var(--space-4);
+            right: var(--space-4);
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-2);
+        }
+        .toast {
+            padding: var(--space-3) var(--space-4);
+            border-radius: var(--radius-md);
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow-lg);
+            font-size: var(--text-sm);
+            max-width: 320px;
+            transform: translateX(120%);
+            transition: transform var(--transition-slow);
+        }
+        .toast.visible {
+            transform: translateX(0);
+        }
+        .toast-info {
+            border-left: 3px solid var(--accent-color);
+        }
+        .toast-success {
+            border-left: 3px solid var(--success-color);
+        }
+        .toast-warning {
+            border-left: 3px solid var(--warning-color);
+        }
+        .toast-error {
+            border-left: 3px solid var(--error-color);
         }
 
         /* Main Content Area */
@@ -585,12 +817,52 @@ export class WebviewServer {
         /* Sidebar */
         .sidebar {
             width: 280px;
+            min-width: 200px;
+            max-width: 400px;
             background: var(--bg-secondary);
             border-right: 1px solid var(--border-color);
             display: flex;
             flex-direction: column;
             flex-shrink: 0;
             overflow-y: auto;
+            position: relative;
+            transition: width var(--transition-slow), min-width var(--transition-slow), border-right var(--transition-slow);
+        }
+        .sidebar.collapsed {
+            width: 0 !important;
+            min-width: 0 !important;
+            overflow: hidden;
+            border-right: none;
+            padding: 0;
+        }
+        .sidebar.collapsed * {
+            visibility: hidden;
+        }
+        .sidebar-resize-handle {
+            position: absolute;
+            top: 0;
+            right: -3px;
+            bottom: 0;
+            width: 6px;
+            cursor: col-resize;
+            background: transparent;
+            z-index: 10;
+            transition: background var(--transition-fast);
+        }
+        .sidebar-resize-handle:hover,
+        .sidebar-resize-handle.active {
+            background: var(--accent-color);
+        }
+        .sidebar-toggle {
+            position: absolute;
+            top: var(--space-2);
+            right: var(--space-2);
+            z-index: 5;
+            opacity: 0;
+            transition: opacity var(--transition-normal);
+        }
+        .sidebar:hover .sidebar-toggle {
+            opacity: 1;
         }
 
         /* Collapsible Sections */
@@ -601,32 +873,36 @@ export class WebviewServer {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 10px 12px;
+            padding: var(--space-3);
             cursor: pointer;
             user-select: none;
-            transition: background 0.15s;
+            transition: background var(--transition-normal);
         }
         .section-header:hover {
             background: var(--bg-tertiary);
         }
+        .section-header:focus-visible {
+            outline: 2px solid var(--accent-color);
+            outline-offset: -2px;
+        }
         .section-title {
-            font-size: 11px;
-            font-weight: 600;
+            font-size: var(--text-sm);
+            font-weight: var(--font-semibold);
             text-transform: uppercase;
             letter-spacing: 0.5px;
             color: var(--text-muted);
         }
         .section-toggle {
-            font-size: 10px;
+            font-size: var(--text-xs);
             color: var(--text-muted);
-            transition: transform 0.2s;
+            transition: transform var(--transition-normal);
         }
         .section.expanded .section-toggle {
             transform: rotate(90deg);
         }
         .section-body {
             display: none;
-            padding: 0 12px 12px 12px;
+            padding: 0 var(--space-3) var(--space-3) var(--space-3);
         }
         .section.expanded .section-body {
             display: block;
@@ -1356,26 +1632,102 @@ export class WebviewServer {
         .vis-panel-content .graph-container {
             height: 350px !important;
         }
+
+        /* Accessibility: High Contrast Mode */
+        @media (prefers-contrast: high) {
+            body.dark, body.light {
+                --border-color: currentColor;
+                --shadow-sm: none;
+                --shadow-md: none;
+                --shadow-lg: none;
+                --shadow-xl: none;
+            }
+            .btn {
+                border-width: 2px;
+            }
+            .expression-input,
+            .form-input,
+            .select {
+                border-width: 2px;
+            }
+            :focus-visible {
+                outline-width: 3px;
+            }
+        }
+
+        /* Accessibility: Reduced Motion */
+        @media (prefers-reduced-motion: reduce) {
+            *,
+            *::before,
+            *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+
+        /* Focus Visible Enhancement */
+        :focus-visible {
+            outline: 2px solid var(--accent-color);
+            outline-offset: 2px;
+        }
+        :focus:not(:focus-visible) {
+            outline: none;
+        }
+
+        /* Performance: CSS Containment */
+        .visualization {
+            contain: layout style;
+        }
+        .sidebar {
+            contain: layout;
+        }
     </style>
 </head>
 <body class="dark">
     <div class="app-container">
         <!-- Toolbar -->
         <div class="toolbar">
-            <input type="text" class="expression-input" id="expression" placeholder="Enter expression (e.g., root, nums) — use comma for side-by-side">
+            <button class="btn btn-icon btn-ghost" id="toggle-sidebar" title="Toggle sidebar (Ctrl+B)" aria-label="Toggle sidebar">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M0 2.5A.5.5 0 0 1 .5 2h15a.5.5 0 0 1 0 1H.5a.5.5 0 0 1-.5-.5zM0 7.5A.5.5 0 0 1 .5 7h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5zM0 12.5a.5.5 0 0 1 .5-.5h15a.5.5 0 0 1 0 1H.5a.5.5 0 0 1-.5-.5z"/>
+                </svg>
+            </button>
+            <div class="toolbar-divider"></div>
+            <input type="text" class="expression-input" id="expression" placeholder="Enter expression (e.g., root, nums) — comma for side-by-side" aria-label="Expression to visualize">
+            <div class="toolbar-divider"></div>
             <div class="toolbar-group">
-                <select class="select" id="extractor" title="Visualization type">
+                <select class="select" id="extractor" title="Visualization type" aria-label="Select visualization type">
                     <option value="">Auto</option>
                 </select>
-                <button class="btn btn-primary" id="refresh" title="Refresh (Enter)">Refresh</button>
-                <button class="btn btn-secondary" id="reset" title="Reset all">Reset</button>
+            </div>
+            <div class="toolbar-divider"></div>
+            <div class="toolbar-group">
+                <button class="btn btn-icon btn-primary" id="refresh" title="Refresh (Ctrl+Enter)" aria-label="Refresh visualization">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 1 1 .908-.418A6 6 0 1 1 8 2v1z"/>
+                        <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/>
+                    </svg>
+                </button>
+                <button class="btn btn-icon btn-ghost" id="reset" title="Reset all" aria-label="Reset all settings">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/>
+                    </svg>
+                </button>
+                <button class="btn btn-icon btn-ghost" id="export" title="Export as PNG (Ctrl+S)" aria-label="Export visualization">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
+                        <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
+                    </svg>
+                </button>
             </div>
         </div>
 
         <!-- Main Content -->
         <div class="main-content">
             <!-- Sidebar -->
-            <div class="sidebar">
+            <div class="sidebar" id="sidebar">
+                <div class="sidebar-resize-handle" id="sidebar-resize"></div>
                 <!-- Pointer Tracking Section -->
                 <div class="section expanded" id="pointer-section">
                     <div class="section-header" id="pointer-config-header">
@@ -1474,6 +1826,144 @@ export class WebviewServer {
         let currentNetworks = [];
         let isDarkTheme = true;
         let pointerColors = ['#22c55e', '#ef4444', '#3b82f6', '#f59e0b', '#8b5cf6', '#ec4899'];
+
+        // Sidebar elements
+        const sidebar = document.getElementById('sidebar');
+        const sidebarResize = document.getElementById('sidebar-resize');
+        const toggleSidebarBtn = document.getElementById('toggle-sidebar');
+        const exportBtn = document.getElementById('export');
+
+        // Toast container
+        const toastContainer = document.createElement('div');
+        toastContainer.className = 'toast-container';
+        document.body.appendChild(toastContainer);
+
+        // Toast notification function
+        function showToast(message, type = 'info') {
+            const toast = document.createElement('div');
+            toast.className = 'toast toast-' + type;
+            toast.textContent = message;
+            toastContainer.appendChild(toast);
+
+            setTimeout(() => toast.classList.add('visible'), 10);
+            setTimeout(() => {
+                toast.classList.remove('visible');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        // Sidebar resize functionality
+        let isResizing = false;
+        let startX, startWidth;
+
+        sidebarResize.addEventListener('mousedown', (e) => {
+            isResizing = true;
+            startX = e.clientX;
+            startWidth = sidebar.offsetWidth;
+            sidebarResize.classList.add('active');
+            document.body.style.cursor = 'col-resize';
+            document.body.style.userSelect = 'none';
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!isResizing) return;
+            const width = startWidth + (e.clientX - startX);
+            const clampedWidth = Math.max(200, Math.min(400, width));
+            sidebar.style.width = clampedWidth + 'px';
+        });
+
+        document.addEventListener('mouseup', () => {
+            if (isResizing) {
+                isResizing = false;
+                sidebarResize.classList.remove('active');
+                document.body.style.cursor = '';
+                document.body.style.userSelect = '';
+            }
+        });
+
+        // Sidebar toggle
+        toggleSidebarBtn.addEventListener('click', () => {
+            sidebar.classList.toggle('collapsed');
+        });
+
+        // Export functionality
+        exportBtn.addEventListener('click', () => {
+            exportVisualization();
+        });
+
+        async function exportVisualization() {
+            // Try to export vis-network canvas
+            const canvas = visualization.querySelector('canvas');
+            if (canvas) {
+                try {
+                    const link = document.createElement('a');
+                    link.download = 'visualization.png';
+                    link.href = canvas.toDataURL('image/png');
+                    link.click();
+                    showToast('Exported as PNG', 'success');
+                    return;
+                } catch (e) {
+                    console.error('Export failed:', e);
+                }
+            }
+
+            // Try Plotly export
+            const plotlyDiv = document.getElementById('plotly-container');
+            if (plotlyDiv && typeof Plotly !== 'undefined') {
+                try {
+                    await Plotly.downloadImage(plotlyDiv, {
+                        format: 'png',
+                        filename: 'visualization',
+                        width: 1200,
+                        height: 800
+                    });
+                    showToast('Exported as PNG', 'success');
+                    return;
+                } catch (e) {
+                    console.error('Plotly export failed:', e);
+                }
+            }
+
+            showToast('Export not available for this visualization type', 'warning');
+        }
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            // Ctrl+Enter: Refresh
+            if (e.ctrlKey && e.key === 'Enter') {
+                e.preventDefault();
+                sendExpression();
+            }
+
+            // Ctrl+B: Toggle sidebar
+            if (e.ctrlKey && e.key === 'b') {
+                e.preventDefault();
+                sidebar.classList.toggle('collapsed');
+            }
+
+            // Ctrl+S: Export
+            if (e.ctrlKey && e.key === 's') {
+                e.preventDefault();
+                exportVisualization();
+            }
+
+            // Escape: Clear focus
+            if (e.key === 'Escape') {
+                document.activeElement.blur();
+            }
+        });
+
+        // Section keyboard navigation
+        document.querySelectorAll('.section-header').forEach(header => {
+            header.setAttribute('tabindex', '0');
+            header.setAttribute('role', 'button');
+            header.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    header.click();
+                }
+            });
+        });
 
         ws.onmessage = (event) => {
             const message = JSON.parse(event.data);
