@@ -1,9 +1,14 @@
 {
-  "name": "python-debug-visualizer",
-  "displayName": "Python Debug Visualizer",
+  "name": "pydebugvisualizerhelper",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/vkfolio/python-debug-visualizer"
+  },
+  "license": "MIT",
+  "displayName": "PyDebug Visualizer Helper",
   "description": "Visualize Python data structures during debugging - lists, dicts, NumPy arrays, Pandas DataFrames, trees, graphs, and more",
   "version": "0.1.0",
-  "publisher": "python-debug-visualizer",
+  "publisher": "vigneshkarnika",
   "engines": {
     "vscode": "^1.84.0"
   },

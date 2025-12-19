@@ -2,11 +2,11 @@ Metadata-Version: 2.4
 Name: pydebugvisualizer
 Version: 0.1.0
 Summary: Python Debug Visualizer - Automatic data structure visualization for VS Code debugging
-Author: Python Debug Visualizer Contributors
+Author-email: Vignesh Karnika <your-email@example.com>
 License: MIT
-Project-URL: Homepage, https://github.com/yourusername/python-debug-visualizer
-Project-URL: Repository, https://github.com/yourusername/python-debug-visualizer
-Project-URL: Issues, https://github.com/yourusername/python-debug-visualizer/issues
+Project-URL: Homepage, https://github.com/vkfolio/python-debug-visualizer
+Project-URL: Repository, https://github.com/vkfolio/python-debug-visualizer
+Project-URL: Issues, https://github.com/vkfolio/python-debug-visualizer/issues
 Classifier: Development Status :: 3 - Alpha
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
